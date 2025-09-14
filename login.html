@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <title>Approval System - Login</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; margin: 0; color: #333; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .container { background: #fff; padding: 40px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; width: 320px; }
+        h1 { margin-bottom: 20px; color: #1c1e21; }
+        input { font-size: 16px; border-radius: 6px; padding: 12px; border: 1px solid #ccc; box-sizing: border-box; width: 100%; margin-bottom: 15px; }
+        button { font-size: 16px; border-radius: 6px; padding: 12px; border: none; box-sizing: border-box; width: 100%; cursor: pointer; color: white; background-color: #4267B2; }
+        button:hover { background-color: #365899; }
+        button:disabled { background-color: #9cb4d8; cursor: not-allowed; }
+        #message { margin-top: 15px; color: #fa3e3e; font-weight: bold; min-height: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Login</h1>
+        <input type="text" id="username" placeholder="Username" onkeyup="handleKey(event)">
+        <input type="password" id="password" placeholder="Password" onkeyup="handleKey(event)">
+        <button onclick="login()">Login</button>
+        <p id="message"></p>
+    </div>
+
+    <script>
+        // =================================================================================
+        //  IMPORTANT: APNE DEPLOYED GOOGLE APPS SCRIPT KA URL YAHAN PASTE KAREIN
+        // =================================================================================
+        const SCRIPT_URL = "YAHAN_APPS_SCRIPT_KA_URL_PASTE_KAREIN";
+
+
+        // This function runs when the page is fully loaded.
+        document.addEventListener("DOMContentLoaded", () => {
+            // If the user is already logged in (we have their info in storage),
+            // redirect them to their dashboard immediately.
+            const userType = localStorage.getItem('approvalType');
+            if (userType) {
+                // Redirects 'Accountant' -> 'accountant.html'
+                window.location.href = `${userType.toLowerCase()}.html`;
+            }
+        });
+
+        function handleKey(event) {
+            // If the user presses the "Enter" key, trigger the login function.
+            if (event.keyCode === 13) {
+                login();
+            }
+        }
+
+        function login() {
+            const username = document.getElementById("username").value.trim();
+            const password = document.getElementById("password").value.trim();
+            const messageEl = document.getElementById("message");
+            const loginButton = document.querySelector('button');
+
+            if (!username || !password) {
+                messageEl.textContent = "Please enter both username and password.";
+                return;
+            }
+
+            // Provide immediate user feedback.
+            messageEl.textContent = "";
+            loginButton.textContent = "Verifying...";
+            loginButton.disabled = true;
+
+            // This is the new API request using fetch.
+            const requestData = {
+                action: "verifyUser",
+                params: [username, password]
+            };
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                // Use text/plain for Apps Script POST requests from a browser
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(requestData)
+            })
+            .then(res => res.json())
+            .then(response => {
+                // The backend now wraps the result in a 'data' object on success
+                if (response.success && response.data.success) {
+                    const user = response.data.user;
+                    
+                    // Save user info in the browser's local storage.
+                    // This is how other pages will know who is logged in.
+                    localStorage.setItem('approvalType', user.approvalType);
+                    localStorage.setItem('approvalName', user.approvalName);
+                    
+                    // Redirect to the correct dashboard page on GitHub.
+                    // e.g., 'HOD' -> 'hod.html'
+                    window.location.href = `${user.approvalType.toLowerCase()}.html`;
+
+                } else {
+                    // If login fails, show the error message from the backend.
+                    const errorMessage = response.data ? response.data.message : response.message;
+                    messageEl.textContent = errorMessage;
+                    loginButton.textContent = "Login";
+                    loginButton.disabled = false;
+                }
+            })
+            .catch(error => {
+                // Handle network or other unexpected errors.
+                console.error("Fetch Error:", error);
+                messageEl.textContent = "A network error occurred. Please check the console.";
+                loginButton.textContent = "Login";
+                loginButton.disabled = false;
+            });
+        }
+    </script>
+</body>
+</html>
