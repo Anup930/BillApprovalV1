@@ -54,25 +54,37 @@
     <div class="sidebar">
         <div class="sidebar-header">CFO Approval</div>
         <div class="sidebar-nav">
-            <button id="nav-pending" onclick="showSection('pending')">Pending</button>
-            <button id="nav-approved" onclick="showSection('approved')">Approved</button>
-            <button id="nav-rejected" onclick="showSection('rejected')">Rejected</button>
+            <button id="nav-pending" onclick="showSection('pending')">My Pending</button>
+            <button id="nav-approved" onclick="showSection('approved')">My Approved</button>
+            <button id="nav-rejected" onclick="showSection('rejected')">My Rejected</button>
+            <!-- === NEW BUTTON === -->
+            <button id="nav-accountant-pending" onclick="showSection('accountant-pending')">Pending From Accountant</button>
         </div>
         <button class="logout-btn" onclick="logoutUser()">Logout</button>
     </div>
+
     <div class="main-content">
         <h1 id="welcome-message">CFO Approvals</h1>
-        <div id="pending-section" class="content-section"><div class="section-header"><h2>Pending Approvals</h2><div class="column-selector" id="pending-selector"></div></div><div id="pending-loader" class="loader">Loading...</div><table id="pending-table" style="display:none;"><thead></thead><tbody></tbody></table><p id="no-pending" style="display:none;">You have no pending approvals.</p></div>
-        <div id="approved-section" class="content-section"><div class="section-header"><h2>Approved Items</h2><div class="column-selector" id="approved-selector"></div></div><div id="approved-loader" class="loader">Loading...</div><table id="approved-table" style="display:none;"><thead></thead><tbody></tbody></table><p id="no-approved" style="display:none;">No approved items found.</p></div>
-        <div id="rejected-section" class="content-section"><div class="section-header"><h2>Rejected Items</h2><div class="column-selector" id="rejected-selector"></div></div><div id="rejected-loader" class="loader">Loading...</div><table id="rejected-table" style="display:none;"><thead></thead><tbody></tbody></table><p id="no-rejected" style="display:none;">No rejected items found.</p></div>
+        <div id="pending-section" class="content-section"><div class="section-header"><h2>My Pending Approvals</h2><div class="column-selector" id="pending-selector"></div></div><div id="pending-loader" class="loader">Loading...</div><table id="pending-table" style="display:none;"><thead></thead><tbody></tbody></table><p id="no-pending" style="display:none;">You have no pending approvals.</p></div>
+        <div id="approved-section" class="content-section"><div class="section-header"><h2>My Approved Items</h2><div class="column-selector" id="approved-selector"></div></div><div id="approved-loader" class="loader">Loading...</div><table id="approved-table" style="display:none;"><thead></thead><tbody></tbody></table><p id="no-approved" style="display:none;">No approved items found.</p></div>
+        <div id="rejected-section" class="content-section"><div class="section-header"><h2>My Rejected Items</h2><div class="column-selector" id="rejected-selector"></div></div><div id="rejected-loader" class="loader">Loading...</div><table id="rejected-table" style="display:none;"><thead></thead><tbody></tbody></table><p id="no-rejected" style="display:none;">No rejected items found.</p></div>
+        
+        <!-- === NEW SECTION === -->
+        <div id="accountant-pending-section" class="content-section">
+            <div class="section-header">
+                <h2>Pending From Accountant</h2>
+                <div class="column-selector" id="accountant-pending-selector"></div>
+            </div>
+            <div id="accountant-pending-loader" class="loader">Loading...</div>
+            <table id="accountant-pending-table" style="display:none;"><thead></thead><tbody></tbody></table>
+            <p id="no-accountant-pending" style="display:none;">No items are currently pending with the Accountant.</p>
+        </div>
+
     </div>
     <div id="details-modal" class="modal-overlay"><div class="modal-content"><button class="modal-close-btn" onclick="closeModal('details-modal')">&times;</button><h2>Full Details</h2><div id="modal-body" class="modal-body"></div></div></div>
     <div id="rejection-modal" class="modal-overlay"><div class="modal-content"><button class="modal-close-btn" onclick="closeModal('rejection-modal')">&times;</button><h2>Reason for Rejection</h2><p>Please provide a reason for rejecting this item.</p><textarea id="rejection-reason-text"></textarea><div class="modal-actions"><button id="rejection-cancel-btn" onclick="closeModal('rejection-modal')">Cancel</button><button id="rejection-submit-btn">Submit Rejection</button></div></div></div>
 
     <script>
-        // =================================================================================
-        //  IMPORTANT: APNE DEPLOYED GOOGLE APPS SCRIPT KA URL YAHAN BHI PASTE KAREIN
-        // =================================================================================
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrwUdXo0iEj4IMh3OKEjj8o4lVjvUkrq2GG_we3tLJcwGT4LgA2FoHKd6BLZW3Rqxc/exec";
 
         let loadedData = {};
@@ -86,9 +98,7 @@
                 body: JSON.stringify({ action: functionName, params: params })
             });
             const result = await response.json();
-            if (!result.success) {
-                throw new Error(result.message);
-            }
+            if (!result.success) throw new Error(result.message);
             return result.data;
         }
 
@@ -96,7 +106,7 @@
             const currentUser = localStorage.getItem('approvalName');
             const userType = localStorage.getItem('approvalType');
 
-            if (!currentUser || !userType) {
+            if (!currentUser || userType !== 'CFO') { // Ensure only CFO can see this
                 window.location.href = 'index.html';
                 return;
             }
@@ -106,15 +116,26 @@
             window.addEventListener('click', () => { document.querySelectorAll('.column-dropdown').forEach(d => d.classList.remove('visible')); });
 
             try {
-                // CHANGE #1: Pass 'CFO' as the user type
-                const response = await callAppsScript('getUserData', [currentUser, 'CFO']);
-                loadedData = { pending: response.pending, approved: response.approved, rejected: response.rejected };
-                availableColumns = response.columnMap;
+                // === MODIFIED: Load both sets of data simultaneously ===
+                const [userData, accountantData] = await Promise.all([
+                    callAppsScript('getUserData', [currentUser, 'CFO']),
+                    callAppsScript('getAccountantPendingData')
+                ]);
+
+                loadedData = { 
+                    pending: userData.pending, 
+                    approved: userData.approved, 
+                    rejected: userData.rejected,
+                    'accountant-pending': accountantData // New data category
+                };
+                availableColumns = userData.columnMap;
                 
                 initializeColumnSelectors();
                 renderTable('pending', loadedData.pending);
                 renderTable('approved', loadedData.approved);
                 renderTable('rejected', loadedData.rejected);
+                renderTable('accountant-pending', loadedData['accountant-pending']); // Render new table
+                
                 showSection('pending');
             } catch (error) {
                 alert('Failed to load data: ' + error.message);
@@ -130,11 +151,9 @@
             const modalBody = document.getElementById('modal-body');
             modalBody.innerHTML = '<div class="loader">Loading...</div>';
             openModal('details-modal');
-
             try {
                 const details = await callAppsScript('getEntryDetails', [uniqueId]);
                 if (!details) { modalBody.innerHTML = 'Error: Entry not found.'; return; }
-
                 let contentHtml = '';
                 for (const key in details) {
                     if (details[key] !== '') {
@@ -149,6 +168,39 @@
             }
         }
 
+        // --- NEW: Handles actions for the 'Pending from Accountant' table ---
+        function handleAccountantPendingAction(uniqueId, isApproved, btnElement) {
+            event.stopPropagation();
+            if (isApproved) {
+                submitAccountantAndCfoUpdate(uniqueId, 'Approved', btnElement);
+            } else {
+                openModal('rejection-modal');
+                const reasonText = document.getElementById('rejection-reason-text');
+                const submitBtn = document.getElementById('rejection-submit-btn');
+                reasonText.value = '';
+                submitBtn.onclick = () => {
+                    const reason = reasonText.value.trim();
+                    if (!reason) { alert("A reason is required to reject an item."); return; }
+                    submitAccountantAndCfoUpdate(uniqueId, `Rejected: ${reason}`, btnElement);
+                };
+            }
+        }
+
+        // --- NEW: Submits the update for both Accountant and CFO status ---
+        async function submitAccountantAndCfoUpdate(uniqueId, newStatus, btnElement) {
+            closeModal('rejection-modal');
+            const actionCell = btnElement.parentElement;
+            actionCell.innerHTML = 'Submitting...';
+            try {
+                await callAppsScript('updateAccountantAndCfoStatus', [uniqueId, newStatus]);
+                window.location.reload();
+            } catch (error) {
+                alert("Submission failed: " + error.message);
+                actionCell.innerHTML = `<button class="approve-btn" onclick="handleAccountantPendingAction('${uniqueId}', true, this)">Approve</button><button class="reject-btn" onclick="handleAccountantPendingAction('${uniqueId}', false, this)">Reject</button>`;
+            }
+        }
+
+        // --- Handles actions for 'My Pending' table ---
         function handleApproval(uniqueId, isApproved, btnElement) {
             event.stopPropagation();
             if (isApproved) {
@@ -170,9 +222,7 @@
             closeModal('rejection-modal');
             const actionCell = btnElement.parentElement;
             actionCell.innerHTML = 'Submitting...';
-
             try {
-                // CHANGE #2: Pass 'CFO' as the user type for the update
                 await callAppsScript('updateApprovalStatus', [uniqueId, newStatus, 'CFO']);
                 window.location.reload();
             } catch (error) {
@@ -190,6 +240,7 @@
             document.getElementById('nav-' + sectionName).classList.add('active');
         }
 
+        // --- MODIFIED: renderTable now handles the new 'accountant-pending' table ---
         function renderTable(tableType, data) {
             const table = document.getElementById(`${tableType}-table`);
             const thead = table.querySelector("thead"); const tbody = table.querySelector("tbody");
@@ -198,15 +249,17 @@
             if (!data || data.length === 0) { document.getElementById(`no-${tableType}`).style.display = 'block'; table.style.display = 'none'; return; }
             table.style.display = 'table'; document.getElementById(`no-${tableType}`).style.display = 'none';
 
-            const isPending = tableType === 'pending';
-            // CHANGE #3: Use a unique storage key for CFO
             const storageKey = `cfo-${tableType}-cols`; 
             let visibleCols = JSON.parse(localStorage.getItem(storageKey)) || DEFAULT_VISIBLE_COLS;
             
             const headerRow = document.createElement('tr');
             visibleCols.forEach(key => { if (availableColumns[key]) { const th = document.createElement('th'); th.textContent = availableColumns[key]; headerRow.appendChild(th); } });
-            if (isPending) headerRow.insertAdjacentHTML('beforeend', '<th>Action</th>');
-            else if(!visibleCols.includes('status')) headerRow.insertAdjacentHTML('beforeend', '<th>Status</th>');
+            
+            if (tableType === 'pending' || tableType === 'accountant-pending') {
+                headerRow.insertAdjacentHTML('beforeend', '<th>Action</th>');
+            } else if(!visibleCols.includes('status')) {
+                headerRow.insertAdjacentHTML('beforeend', '<th>Status</th>');
+            }
             thead.appendChild(headerRow);
 
             data.forEach(row => {
@@ -219,16 +272,22 @@
                         tr.appendChild(td);
                     }
                 });
-                if (isPending) { tr.insertAdjacentHTML('beforeend', `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleApproval('${row.uniqueID}', true, this)">Approve</button><button class="reject-btn" onclick="handleApproval('${row.uniqueID}', false, this)">Reject</button></td>`);
-                } else if(!visibleCols.includes('status')) { tr.insertAdjacentHTML('beforeend', `<td>${row.status || ''}</td>`); }
+                
+                if (tableType === 'pending') {
+                    tr.insertAdjacentHTML('beforeend', `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleApproval('${row.uniqueID}', true, this)">Approve</button><button class="reject-btn" onclick="handleApproval('${row.uniqueID}', false, this)">Reject</button></td>`);
+                } else if (tableType === 'accountant-pending') {
+                     tr.insertAdjacentHTML('beforeend', `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleAccountantPendingAction('${row.uniqueID}', true, this)">Approve</button><button class="reject-btn" onclick="handleAccountantPendingAction('${row.uniqueID}', false, this)">Reject</button></td>`);
+                } else if(!visibleCols.includes('status')) {
+                    tr.insertAdjacentHTML('beforeend', `<td>${row.status || ''}</td>`);
+                }
                 tbody.appendChild(tr);
             });
         }
         
         function initializeColumnSelectors() {
-            ['pending', 'approved', 'rejected'].forEach(tableType => {
+            ['pending', 'approved', 'rejected', 'accountant-pending'].forEach(tableType => {
                 const selectorContainer = document.getElementById(`${tableType}-selector`);
-                // CHANGE #4: Use the same unique storage key
+                if (!selectorContainer) return; // Failsafe
                 const storageKey = `cfo-${tableType}-cols`;
                 const btn = document.createElement('button'); btn.className = 'column-selector-btn'; btn.textContent = 'Select Columns';
                 const dropdown = document.createElement('div'); dropdown.className = 'column-dropdown';
