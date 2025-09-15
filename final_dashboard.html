@@ -16,86 +16,96 @@
         .sidebar-nav a.active { background-color: #4267B2; color: #ffffff; font-weight: bold; }
         .logout-btn { border-top: 1px solid #34495e; border-bottom: none; }
         h1, h2 { color: #1c1e21; padding-bottom: 10px; margin-bottom: 20px; border-bottom: 1px solid #ddd; }
-
-        /* --- Enhanced Loader Styles --- */
+        
+        /* --- Loader Styles --- */
         .loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f0f2f5; z-index: 999; display: flex; justify-content: center; align-items: center; }
         .spinner { border: 5px solid rgba(0, 0, 0, 0.1); border-left-color: #4267B2; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
         .loader-overlay.hidden { display: none; }
         #dashboard-content { opacity: 0; transition: opacity 0.5s ease-in-out; }
         #dashboard-content.visible { opacity: 1; }
 
-        /* --- Dynamic Dashboard Styles --- */
-        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        /* --- Analysis Dashboard Styles --- */
+        .dashboard-section { margin-bottom: 30px; }
+        .analysis-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .analysis-card { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .analysis-card .label { font-size: 1em; color: #555; margin-bottom: 10px; }
+        .analysis-card .count { font-size: 2.2em; font-weight: bold; color: #4267B2; }
+        .analysis-card .amount { font-size: 1.1em; color: #333; margin-top: 5px; }
+        
+        .breakdown-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .breakdown-container, .chart-container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .breakdown-container table { width: 100%; border-collapse: collapse; }
+        .breakdown-container th, .breakdown-container td { text-align: left; padding: 12px 15px; border-bottom: 1px solid #ddd; }
+        .breakdown-container thead { background-color: #f8f9fa; }
+
+        /* --- Personal Activity Section Styles --- */
+        .personal-activity-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
         .stat-card-link { text-decoration: none; color: inherit; }
         .stat-card { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; transition: transform 0.2s, box-shadow 0.2s; }
         .stat-card:hover { transform: translateY(-5px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
-        .stat-card .number { font-size: 2.5em; font-weight: bold; color: #4267B2; margin-bottom: 5px; }
-        .stat-card .label { font-size: 1em; color: #555; }
+        .stat-card .number { font-size: 2.5em; font-weight: bold; color: #17a2b8; }
+        .stat-card .label { font-size: 1em; color: #555; margin-top: 5px; }
 
-        .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 30px; }
-        .chart-container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        
-        .activity-container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .activity-container table { width: 100%; border-collapse: collapse; }
-        .activity-container th, .activity-container td { text-align: left; padding: 12px 15px; border-bottom: 1px solid #ddd; }
-        .activity-container thead { background-color: #f8f9fa; color: #333; }
-        .status-approved { color: #28a745; font-weight: bold; }
-        .status-rejected { color: #dc3545; font-weight: bold; }
-
-        @media (max-width: 992px) { .charts-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 992px) { .breakdown-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
     <div class="sidebar">
         <div class="sidebar-header">Final Approval View</div>
         <div class="sidebar-nav">
-            <a id="nav-dashboard" href="final_dashboard.html" class="active">Dashboard</a>
-            <a id="nav-pending" href="final.html">Approval Queues</a>
+            <a href="final_dashboard.html" class="active">Dashboard</a>
+            <a href="final.html">Approval Queues</a>
         </div>
         <button class="logout-btn" onclick="logoutUser()">Logout</button>
     </div>
 
     <div class="main-content">
         <h1 id="welcome-message">Dashboard</h1>
-        
-        <div id="loader" class="loader-overlay">
-            <div class="spinner"></div>
-        </div>
+        <div id="loader" class="loader-overlay"><div class="spinner"></div></div>
 
         <div id="dashboard-content">
-            <div class="dashboard-grid">
-                <a href="final.html?section=pending" class="stat-card-link">
-                    <div class="stat-card"><div id="my-pending-count" class="number">0</div><div class="label">My Pending</div></div>
-                </a>
-                <a href="final.html?section=approved" class="stat-card-link">
-                    <div class="stat-card"><div id="approved-count" class="number">0</div><div class="label">Total Approved</div></div>
-                </a>
-                <a href="final.html?section=rejected" class="stat-card-link">
-                    <div class="stat-card"><div id="rejected-count" class="number">0</div><div class="label">Total Rejected</div></div>
-                </a>
-                <a href="final.html?section=hod-pending" class="stat-card-link">
-                    <div class="stat-card"><div id="hod-pending-count" class="number">0</div><div class="label">Pending from HOD</div></div>
-                </a>
+            <!-- === FULL PIPELINE OVERVIEW SECTION === -->
+            <div class="dashboard-section">
+                <h2>Full Pipeline Overview</h2>
+                <div class="analysis-grid">
+                    <div class="analysis-card"><div class="label">Pending with Accountant</div><div id="acct-count" class="count">0</div><div id="acct-amount" class="amount">₹0</div></div>
+                    <div class="analysis-card"><div class="label">Pending with CFO</div><div id="cfo-count" class="count">0</div><div id="cfo-amount" class="amount">₹0</div></div>
+                    <div class="analysis-card"><div class="label">Pending with HODs</div><div id="hod-count" class="count">0</div><div id="hod-amount" class="amount">₹0</div></div>
+                    <div class="analysis-card"><div class="label">Pending with Final Approver</div><div id="final-count" class="count">0</div><div id="final-amount" class="amount">₹0</div></div>
+                </div>
             </div>
 
-            <div class="charts-grid">
-                <div class="chart-container"><h2>Approvals Overview</h2><canvas id="overviewChart"></canvas></div>
-                <div class="chart-container"><h2>Decision Ratio</h2><canvas id="ratioChart"></canvas></div>
+            <div class="dashboard-section breakdown-grid">
+                <div class="chart-container">
+                    <h2>Pipeline Status (by Bill Count)</h2>
+                    <canvas id="pipelineChart"></canvas>
+                </div>
+                <div class="breakdown-container">
+                    <h2>HOD Pending Breakdown</h2>
+                    <table id="hod-breakdown-table">
+                        <thead><tr><th>HOD Name</th><th>Bills</th><th>Total Amount</th></tr></thead>
+                        <tbody><!-- HOD data will be inserted here --></tbody>
+                    </table>
+                </div>
             </div>
 
-            <div class="activity-container">
-                <h2>Recent Activity</h2>
-                <table id="recent-activity-table">
-                    <thead><tr><th>Unique ID</th><th>Vendor</th><th>Amount</th><th>Status</th></tr></thead>
-                    <tbody></tbody>
-                </table>
+            <!-- === PERSONAL ACTIVITY SECTION === -->
+            <div class="dashboard-section">
+                <h2>My Personal Activity</h2>
+                <div class="personal-activity-grid">
+                    <a href="final.html?section=pending" class="stat-card-link"><div class="stat-card"><div id="my-pending-count" class="number">0</div><div class="label">My Pending</div></div></a>
+                    <a href="final.html?section=approved" class="stat-card-link"><div class="stat-card"><div id="my-approved-count" class="number">0</div><div class="label">My Approved</div></div></a>
+                    <a href="final.html?section=rejected" class="stat-card-link"><div class="stat-card"><div id="my-rejected-count" class="number">0</div><div class="label">My Rejected</div></div></a>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrwUdXo0iEj4IMh3OKEjj8o4lVjvUkrq2GG_we3tLJcwGT4LgA2FoHKd6BLZW3Rqxc/exec";
+
+        const formatCurrency = (num) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
 
         async function callAppsScript(functionName, params = []) {
             const response = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: functionName, params: params }) });
@@ -108,33 +118,87 @@
             const currentUser = localStorage.getItem('approvalName');
             const userType = localStorage.getItem('approvalType');
 
-            if (!currentUser || userType !== 'Final') {
-                window.location.href = 'index.html';
-                return;
-            }
-
+            if (!currentUser || userType !== 'Final') { window.location.href = 'index.html'; return; }
             document.getElementById('welcome-message').textContent += ` (Welcome, ${currentUser})`;
 
             try {
-                // Fetch all data needed for the dashboard
-                const [userData, hodData] = await Promise.all([
-                    callAppsScript('getUserData', [currentUser, 'Final']),
-                    callAppsScript('getHodPendingData')
+                const [analysisData, userData] = await Promise.all([
+                    callAppsScript('getGlobalPipelineAnalysis'),
+                    callAppsScript('getUserData', [currentUser, 'Final'])
                 ]);
                 
-                populateStats(userData, hodData);
-                renderCharts(userData, hodData);
-                populateRecentActivity(userData);
+                populatePipelineOverview(analysisData);
+                renderPipelineChart(analysisData);
+                populateHodBreakdown(analysisData.pendingWithHod.breakdown);
+                populatePersonalStats(userData);
 
                 document.getElementById('loader').classList.add('hidden');
                 document.getElementById('dashboard-content').classList.add('visible');
 
             } catch (error) {
                 const loader = document.getElementById('loader');
-                loader.innerHTML = `<p style="color: #dc3545;">Failed to load dashboard: ${error.message}</p>`;
+                loader.innerHTML = `<p style="color: #dc3545; text-align: center;">Failed to load dashboard: ${error.message}</p>`;
             }
         });
-        
+
+        function populatePipelineOverview(data) {
+            document.getElementById('acct-count').textContent = data.pendingWithAccountant.count;
+            document.getElementById('acct-amount').textContent = formatCurrency(data.pendingWithAccountant.totalAmount);
+            
+            document.getElementById('cfo-count').textContent = data.pendingWithCfo.count;
+            document.getElementById('cfo-amount').textContent = formatCurrency(data.pendingWithCfo.totalAmount);
+
+            document.getElementById('hod-count').textContent = data.pendingWithHod.count;
+            document.getElementById('hod-amount').textContent = formatCurrency(data.pendingWithHod.totalAmount);
+
+            document.getElementById('final-count').textContent = data.pendingWithFinal.count;
+            document.getElementById('final-amount').textContent = formatCurrency(data.pendingWithFinal.totalAmount);
+        }
+
+        function populateHodBreakdown(breakdownData) {
+            const tbody = document.getElementById('hod-breakdown-table').querySelector('tbody');
+            tbody.innerHTML = '';
+            if (breakdownData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">No bills currently pending with HODs.</td></tr>';
+                return;
+            }
+            breakdownData.forEach(hod => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${hod.hodName}</td>
+                        <td>${hod.count}</td>
+                        <td>${formatCurrency(hod.totalAmount)}</td>
+                    </tr>`;
+            });
+        }
+
+        function renderPipelineChart(data) {
+            const ctx = document.getElementById('pipelineChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Accountant', 'CFO', 'HODs', 'Final Approver'],
+                    datasets: [{
+                        label: 'Number of Pending Bills',
+                        data: [
+                            data.pendingWithAccountant.count,
+                            data.pendingWithCfo.count,
+                            data.pendingWithHod.count,
+                            data.pendingWithFinal.count
+                        ],
+                        backgroundColor: [ 'rgba(255, 159, 64, 0.7)', 'rgba(54, 162, 235, 0.7)', 'rgba(255, 206, 86, 0.7)', 'rgba(75, 192, 192, 0.7)' ],
+                        borderColor: [ 'rgba(255, 159, 64, 1)', 'rgba(54, 162, 235, 1)', 'rgba(255, 206, 86, 1)', 'rgba(75, 192, 192, 1)' ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
         function animateValue(obj, start, end, duration) {
             let startTimestamp = null;
             const step = (timestamp) => {
@@ -146,66 +210,10 @@
             window.requestAnimationFrame(step);
         }
 
-        function populateStats(userData, hodData) {
+        function populatePersonalStats(userData) {
             animateValue(document.getElementById('my-pending-count'), 0, userData.pending.length, 1000);
-            animateValue(document.getElementById('approved-count'), 0, userData.approved.length, 1000);
-            animateValue(document.getElementById('rejected-count'), 0, userData.rejected.length, 1000);
-            animateValue(document.getElementById('hod-pending-count'), 0, hodData.length, 1000);
-        }
-
-        function renderCharts(userData, hodData) {
-            const overviewCtx = document.getElementById('overviewChart').getContext('2d');
-            new Chart(overviewCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['My Pending', 'Approved', 'Rejected', 'HOD Pending'],
-                    datasets: [{
-                        label: 'Number of Items',
-                        data: [ userData.pending.length, userData.approved.length, userData.rejected.length, hodData.length ],
-                        backgroundColor: [ 'rgba(255, 159, 64, 0.5)', 'rgba(75, 192, 192, 0.5)', 'rgba(255, 99, 132, 0.5)', 'rgba(54, 162, 235, 0.5)' ],
-                        borderColor: [ 'rgba(255, 159, 64, 1)', 'rgba(75, 192, 192, 1)', 'rgba(255, 99, 132, 1)', 'rgba(54, 162, 235, 1)' ],
-                        borderWidth: 1
-                    }]
-                },
-                options: { scales: { y: { beginAtZero: true, grace: '10%' } }, plugins: { legend: { display: false } } }
-            });
-
-            const ratioCtx = document.getElementById('ratioChart').getContext('2d');
-            new Chart(ratioCtx, {
-                type: 'pie',
-                data: {
-                    labels: ['Approved', 'Rejected'],
-                    datasets: [{
-                        data: [userData.approved.length, userData.rejected.length],
-                        backgroundColor: ['rgba(75, 192, 192, 0.8)', 'rgba(255, 99, 132, 0.8)'],
-                        hoverOffset: 8
-                    }]
-                },
-                options: { plugins: { legend: { position: 'top' } } }
-            });
-        }
-
-        function populateRecentActivity(userData) {
-            const tbody = document.getElementById('recent-activity-table').querySelector('tbody');
-            tbody.innerHTML = '';
-            const allHandledItems = [...userData.approved, ...userData.rejected].reverse();
-            const recentItems = allHandledItems.slice(0, 5);
-
-            if (recentItems.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No recent activity found.</td></tr>';
-                return;
-            }
-
-            recentItems.forEach(item => {
-                const statusClass = item.status === 'Approved' ? 'status-approved' : 'status-rejected';
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${item.uniqueID}</td>
-                        <td>${item.vendor}</td>
-                        <td>${item.finalAmountPayable}</td>
-                        <td><span class="${statusClass}">${item.status.split(':')[0]}</span></td>
-                    </tr>`;
-            });
+            animateValue(document.getElementById('my-approved-count'), 0, userData.approved.length, 1000);
+            animateValue(document.getElementById('my-rejected-count'), 0, userData.rejected.length, 1000);
         }
 
         function logoutUser() {
