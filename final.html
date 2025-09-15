@@ -17,7 +17,6 @@
         .content-section { display: none; }
         .content-section.visible { display: block; }
         .section-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; margin-bottom: 20px; }
-        .section-header .actions button { margin-left: 10px; }
         h1, h2 { color: #1c1e21; padding-bottom: 10px; margin-bottom: 0; border: none; }
         table { border-collapse: collapse; width: 100%; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; }
         thead { background-color: #17a2b8; color: white; }
@@ -58,7 +57,6 @@
             <button id="nav-pending" onclick="showSection('pending')">My Pending</button>
             <button id="nav-approved" onclick="showSection('approved')">My Approved</button>
             <button id="nav-rejected" onclick="showSection('rejected')">My Rejected</button>
-            <!-- === MODIFIED BUTTON === -->
             <button id="nav-hod-pending" onclick="showSection('hod-pending')">Pending From HOD</button>
         </div>
         <button class="logout-btn" onclick="logoutUser()">Logout</button>
@@ -70,22 +68,18 @@
         <div id="approved-section" class="content-section"><div class="section-header"><h2>My Approved Items</h2><div class="column-selector" id="approved-selector"></div></div><div id="approved-loader" class="loader">Loading...</div><table id="approved-table" style="display:none;"><thead></thead><tbody></tbody></table><p id="no-approved" style="display:none;">No approved items found.</p></div>
         <div id="rejected-section" class="content-section"><div class="section-header"><h2>My Rejected Items</h2><div class="column-selector" id="rejected-selector"></div></div><div id="rejected-loader" class="loader">Loading...</div><table id="rejected-table" style="display:none;"><thead></thead><tbody></tbody></table><p id="no-rejected" style="display:none;">No rejected items found.</p></div>
         
-        <!-- === NEW SECTION === -->
+        <!-- === MODIFIED SECTION: Removed Approve/Reject All buttons === -->
         <div id="hod-pending-section" class="content-section">
             <div class="section-header">
                 <h2>Pending From HOD</h2>
-                <div class="actions">
-                    <button class="approve-btn" onclick="batchUpdate(true)">Approve All</button>
-                    <button class="reject-btn" onclick="batchUpdate(false)">Reject All</button>
-                    <div class="column-selector" id="hod-pending-selector"></div>
-                </div>
+                <div class="column-selector" id="hod-pending-selector"></div>
             </div>
             <div id="hod-pending-loader" class="loader">Loading...</div>
             <table id="hod-pending-table" style="display:none;"><thead></thead><tbody></tbody></table>
             <p id="no-hod-pending" style="display:none;">No items are currently pending with HODs.</p>
         </div>
-
     </div>
+
     <div id="details-modal" class="modal-overlay"><div class="modal-content"><button class="modal-close-btn" onclick="closeModal('details-modal')">&times;</button><h2>Full Details</h2><div id="modal-body" class="modal-body"></div></div></div>
     <div id="rejection-modal" class="modal-overlay"><div class="modal-content"><button class="modal-close-btn" onclick="closeModal('rejection-modal')">&times;</button><h2>Reason for Rejection</h2><p>Please provide a reason for rejecting this item.</p><textarea id="rejection-reason-text"></textarea><div class="modal-actions"><button id="rejection-cancel-btn" onclick="closeModal('rejection-modal')">Cancel</button><button id="rejection-submit-btn">Submit Rejection</button></div></div></div>
 
@@ -103,9 +97,7 @@
                 body: JSON.stringify({ action: functionName, params: params })
             });
             const result = await response.json();
-            if (!result.success) {
-                throw new Error(result.message);
-            }
+            if (!result.success) throw new Error(result.message);
             return result.data;
         }
 
@@ -113,7 +105,7 @@
             const currentUser = localStorage.getItem('approvalName');
             const userType = localStorage.getItem('approvalType');
 
-            if (!currentUser || userType !== 'Final') { // Ensure only final approver can see this page
+            if (!currentUser || userType !== 'Final') {
                 window.location.href = 'index.html';
                 return;
             }
@@ -132,7 +124,7 @@
                     pending: userData.pending, 
                     approved: userData.approved, 
                     rejected: userData.rejected,
-                    'hod-pending': hodData // New data category
+                    'hod-pending': hodData
                 };
                 availableColumns = userData.columnMap;
                 
@@ -175,54 +167,41 @@
                 modalBody.innerHTML = `Error: ${error.message}`;
             }
         }
-        
-        // --- NEW BATCH UPDATE FUNCTION ---
-        function batchUpdate(isApproved) {
-            const hodPendingItems = loadedData['hod-pending'];
-            if (!hodPendingItems || hodPendingItems.length === 0) {
-                alert("There are no HOD pending items to process.");
-                return;
-            }
-            
-            const uniqueIds = hodPendingItems.map(item => item.uniqueID);
-            
+
+        // --- NEW: Handles actions for the 'Pending from HOD' table ---
+        function handleHodPendingAction(uniqueId, isApproved, btnElement) {
+            event.stopPropagation();
             if (isApproved) {
-                if (confirm(`Are you sure you want to approve all ${uniqueIds.length} items? This action cannot be undone.`)) {
-                    submitBatchUpdate(uniqueIds, 'Approved');
-                }
+                submitHodAndFinalUpdate(uniqueId, 'Approved', btnElement);
             } else {
-                // For rejection, we use the same modal but apply the reason to all.
                 openModal('rejection-modal');
                 const reasonText = document.getElementById('rejection-reason-text');
                 const submitBtn = document.getElementById('rejection-submit-btn');
                 reasonText.value = '';
                 submitBtn.onclick = () => {
                     const reason = reasonText.value.trim();
-                    if (!reason) { alert("A reason is required to reject all items."); return; }
-                    submitBatchUpdate(uniqueIds, `Rejected: ${reason}`);
+                    if (!reason) { alert("A reason is required to reject an item."); return; }
+                    submitHodAndFinalUpdate(uniqueId, `Rejected: ${reason}`, btnElement);
                 };
             }
         }
 
-        async function submitBatchUpdate(uniqueIds, newStatus) {
+        // --- NEW: Submits the update for both HOD and Final status ---
+        async function submitHodAndFinalUpdate(uniqueId, newStatus, btnElement) {
             closeModal('rejection-modal');
-            const loader = document.getElementById('hod-pending-loader');
-            loader.textContent = 'Submitting...';
-            loader.style.display = 'block';
-            document.getElementById('hod-pending-table').style.display = 'none';
-
+            const actionCell = btnElement.parentElement;
+            actionCell.innerHTML = 'Submitting...';
             try {
-                await callAppsScript('batchUpdateHodAndFinalStatus', [uniqueIds, newStatus]);
-                alert("All items have been processed successfully.");
+                await callAppsScript('updateHodAndFinalStatus', [uniqueId, newStatus]);
                 window.location.reload();
-            } catch(error) {
-                alert("Batch submission failed: " + error.message);
-                loader.style.display = 'none';
-                document.getElementById('hod-pending-table').style.display = 'table';
+            } catch (error) {
+                alert("Submission failed: " + error.message);
+                // Restore buttons on failure
+                actionCell.innerHTML = `<button class="approve-btn" onclick="handleHodPendingAction('${uniqueId}', true, this)">Approve</button><button class="reject-btn" onclick="handleHodPendingAction('${uniqueId}', false, this)">Reject</button>`;
             }
         }
 
-
+        // --- Handles actions for 'My Pending' table ---
         function handleApproval(uniqueId, isApproved, btnElement) {
             event.stopPropagation();
             if (isApproved) {
@@ -244,7 +223,6 @@
             closeModal('rejection-modal');
             const actionCell = btnElement.parentElement;
             actionCell.innerHTML = 'Submitting...';
-
             try {
                 await callAppsScript('updateApprovalStatus', [uniqueId, newStatus, 'Final']);
                 window.location.reload();
@@ -263,6 +241,7 @@
             document.getElementById('nav-' + sectionName).classList.add('active');
         }
 
+        // --- MODIFIED: renderTable now adds action buttons to the 'hod-pending' table ---
         function renderTable(tableType, data) {
             const table = document.getElementById(`${tableType}-table`);
             const thead = table.querySelector("thead"); const tbody = table.querySelector("tbody");
@@ -271,15 +250,18 @@
             if (!data || data.length === 0) { document.getElementById(`no-${tableType}`).style.display = 'block'; table.style.display = 'none'; return; }
             table.style.display = 'table'; document.getElementById(`no-${tableType}`).style.display = 'none';
 
-            const isMyPending = tableType === 'pending';
             const storageKey = `final-${tableType}-cols`; 
             let visibleCols = JSON.parse(localStorage.getItem(storageKey)) || DEFAULT_VISIBLE_COLS;
             
             const headerRow = document.createElement('tr');
             visibleCols.forEach(key => { if (availableColumns[key]) { const th = document.createElement('th'); th.textContent = availableColumns[key]; headerRow.appendChild(th); } });
             
-            if (isMyPending) headerRow.insertAdjacentHTML('beforeend', '<th>Action</th>');
-            else if(tableType !== 'hod-pending' && !visibleCols.includes('status')) headerRow.insertAdjacentHTML('beforeend', '<th>Status</th>');
+            // Add 'Action' header for tables that need it
+            if (tableType === 'pending' || tableType === 'hod-pending') {
+                headerRow.insertAdjacentHTML('beforeend', '<th>Action</th>');
+            } else if (!visibleCols.includes('status')) {
+                headerRow.insertAdjacentHTML('beforeend', '<th>Status</th>');
+            }
             thead.appendChild(headerRow);
 
             data.forEach(row => {
@@ -292,8 +274,15 @@
                         tr.appendChild(td);
                     }
                 });
-                if (isMyPending) { tr.insertAdjacentHTML('beforeend', `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleApproval('${row.uniqueID}', true, this)">Approve</button><button class="reject-btn" onclick="handleApproval('${row.uniqueID}', false, this)">Reject</button></td>`);
-                } else if(tableType !== 'hod-pending' && !visibleCols.includes('status')) { tr.insertAdjacentHTML('beforeend', `<td>${row.status || ''}</td>`); }
+
+                // Add action buttons based on table type
+                if (tableType === 'pending') {
+                    tr.insertAdjacentHTML('beforeend', `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleApproval('${row.uniqueID}', true, this)">Approve</button><button class="reject-btn" onclick="handleApproval('${row.uniqueID}', false, this)">Reject</button></td>`);
+                } else if (tableType === 'hod-pending') {
+                    tr.insertAdjacentHTML('beforeend', `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleHodPendingAction('${row.uniqueID}', true, this)">Approve</button><button class="reject-btn" onclick="handleHodPendingAction('${row.uniqueID}', false, this)">Reject</button></td>`);
+                } else if (!visibleCols.includes('status')) {
+                    tr.insertAdjacentHTML('beforeend', `<td>${row.status || ''}</td>`);
+                }
                 tbody.appendChild(tr);
             });
         }
@@ -301,6 +290,7 @@
         function initializeColumnSelectors() {
              ['pending', 'approved', 'rejected', 'hod-pending'].forEach(tableType => {
                 const selectorContainer = document.getElementById(`${tableType}-selector`);
+                if (!selectorContainer) return; // Failsafe
                 const storageKey = `final-${tableType}-cols`;
                 const btn = document.createElement('button'); btn.className = 'column-selector-btn'; btn.textContent = 'Select Columns';
                 const dropdown = document.createElement('div'); dropdown.className = 'column-dropdown';
