@@ -212,7 +212,15 @@
                 const tr = document.createElement('tr');
                 tr.onclick = () => showDetails(row.uniqueID);
                 visibleCols.forEach(key => { if (availableColumns[key]) { const td = document.createElement('td'); if (key === 'pDFLink' && row[key]) { td.innerHTML = `<a href="${row[key]}" target="_blank" class="pdf-link" onclick="event.stopPropagation()">View Bill</a>`; } else { td.textContent = row[key]; } tr.appendChild(td); } });
-                if (tableType === 'pending') { tr.insertAdjacentHTML('beforeend', `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleApproval('${row.uniqueID}', true, this)">Approve</button><button class="reject-btn" onclick="handleApproval('${row.uniqueID}', false, this)">Reject</button></td>`); } else if (tableType === 'hod-pending') { tr.insertAdjacentHTML('beforeend', `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleHodPendingAction('${row.uniqueID}', true, this)">Approve</button><button class="reject-btn" onclick="handleHodPendingAction('${uniqueId}', false, this)">Reject</button></td>`); } else if (!visibleCols.includes('status')) { tr.insertAdjacentHTML('beforeend', `<td>${row.status || ''}</td>`); }
+                
+                if (tableType === 'pending') { 
+                    tr.insertAdjacentHTML('beforeend', `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleApproval('${row.uniqueID}', true, this)">Approve</button><button class="reject-btn" onclick="handleApproval('${row.uniqueID}', false, this)">Reject</button></td>`); 
+                } else if (tableType === 'hod-pending') { 
+                    // === THIS IS THE CORRECTED LINE ===
+                    tr.insertAdjacentHTML('beforeend', `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleHodPendingAction('${row.uniqueID}', true, this)">Approve</button><button class="reject-btn" onclick="handleHodPendingAction('${row.uniqueID}', false, this)">Reject</button></td>`); 
+                } else if (!visibleCols.includes('status')) { 
+                    tr.insertAdjacentHTML('beforeend', `<td>${row.status || ''}</td>`); 
+                }
                 tbody.appendChild(tr);
             });
         }
