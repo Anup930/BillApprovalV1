@@ -2,9 +2,8 @@
 <html>
 <head>
     <base target="_top">
-    <title>Final Approval Dashboard</title>
+    <title>Final Approval Queues</title>
     <style>
-        /* --- Styles --- */
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; margin: 0; color: #333; display: flex; height: 100vh; }
         .sidebar { width: 200px; background-color: #2c3e50; color: white; padding-top: 20px; display: flex; flex-direction: column; flex-shrink: 0; }
         .main-content { flex-grow: 1; padding: 20px 40px; overflow-y: auto; }
@@ -39,8 +38,6 @@
         .modal-body { display: grid; grid-template-columns: auto 1fr; gap: 12px 20px; margin-top: 15px; }
         .modal-body .key { font-weight: bold; color: #555; text-align: right; }
         .modal-body .value { word-break: break-all; }
-        .modal-body .value a { color: #007bff; text-decoration: none; }
-        .modal-body .value a:hover { text-decoration: underline; }
         #rejection-modal .modal-content { max-width: 500px; }
         #rejection-modal textarea { width: 100%; min-height: 80px; margin-top: 10px; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 1em; }
         .loader { text-align: center; font-weight: bold; padding: 20px; }
@@ -53,7 +50,6 @@
 <body>
     <div class="sidebar">
         <div class="sidebar-header">Final Approval View</div>
-        <!-- === MODIFIED: New Sidebar Navigation === -->
         <div class="sidebar-nav">
             <a id="nav-dashboard" href="final_dashboard.html">Dashboard</a>
             <a id="nav-queues" href="final.html" class="active">Approval Queues</a>
@@ -88,7 +84,6 @@
         const DEFAULT_VISIBLE_COLS = ['uniqueID', 'vendor', 'invoiceNumber', 'finalAmountPayable', 'pDFLink', 'hODApproval'];
 
         async function callAppsScript(functionName, params = []) {
-            /* ... Unchanged ... */
             const response = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: functionName, params: params }) });
             const result = await response.json();
             if (!result.success) throw new Error(result.message);
@@ -120,7 +115,6 @@
                 renderTable('rejected', loadedData.rejected);
                 renderTable('hod-pending', loadedData['hod-pending']);
                 
-                // --- MODIFIED: Check for URL parameter ---
                 const urlParams = new URLSearchParams(window.location.search);
                 const sectionToShow = urlParams.get('section');
                 if (sectionToShow && document.getElementById(sectionToShow + '-section')) {
@@ -140,13 +134,12 @@
             document.getElementById(sectionName + '-section').classList.add('visible');
             const navButton = document.getElementById('nav-' + sectionName);
             if (navButton) navButton.classList.add('active');
-            // Ensure main 'Queues' link is also active
             document.getElementById('nav-queues').classList.add('active');
         }
 
-        // --- All other JavaScript functions are unchanged ---
         function logoutUser() { localStorage.clear(); window.location.href = 'index.html'; }
-        async function showDetails(uniqueId) { /* ... */ 
+
+        async function showDetails(uniqueId) {
             const modalBody = document.getElementById('modal-body');
             modalBody.innerHTML = '<div class="loader">Loading...</div>';
             openModal('details-modal');
@@ -154,13 +147,16 @@
                 const details = await callAppsScript('getEntryDetails', [uniqueId]);
                 if (!details) { modalBody.innerHTML = 'Error: Entry not found.'; return; }
                 let contentHtml = '';
-                for (const key in details) { if (details[key] !== '') { let value = details[key]; if (typeof value === 'string' && value.startsWith('http')) { value = `<a href="${value}" target="_blank">${value}</a>`; } contentHtml += `<div class="key">${key}:</div><div class="value">${value}</div>`; } }
+                for (const key in details) { if (details[key] !== '') { let value = details[key]; if (typeof value === 'string' && value.startsWith('http')) { value = `<a href="${value}" target="_blank" class="pdf-link">${value}</a>`; } contentHtml += `<div class="key">${key}:</div><div class="value">${value}</div>`; } }
                 modalBody.innerHTML = contentHtml;
             } catch (error) { modalBody.innerHTML = `Error: ${error.message}`; }
         }
-        function handleHodPendingAction(uniqueId, isApproved, btnElement) { /* ... */
+
+        function handleHodPendingAction(uniqueId, isApproved, btnElement) {
             event.stopPropagation();
-            if (isApproved) { submitHodAndFinalUpdate(uniqueId, 'Approved', btnElement); } else {
+            if (isApproved) {
+                submitHodAndFinalUpdate(uniqueId, 'Approved', btnElement);
+            } else {
                 openModal('rejection-modal');
                 const reasonText = document.getElementById('rejection-reason-text');
                 const submitBtn = document.getElementById('rejection-submit-btn');
@@ -168,15 +164,19 @@
                 submitBtn.onclick = () => { const reason = reasonText.value.trim(); if (!reason) { alert("A reason is required to reject an item."); return; } submitHodAndFinalUpdate(uniqueId, `Rejected: ${reason}`, btnElement); };
             }
         }
-        async function submitHodAndFinalUpdate(uniqueId, newStatus, btnElement) { /* ... */
+
+        async function submitHodAndFinalUpdate(uniqueId, newStatus, btnElement) {
             closeModal('rejection-modal');
             const actionCell = btnElement.parentElement;
             actionCell.innerHTML = 'Submitting...';
             try { await callAppsScript('updateHodAndFinalStatus', [uniqueId, newStatus]); window.location.reload(); } catch (error) { alert("Submission failed: " + error.message); actionCell.innerHTML = `<button class="approve-btn" onclick="handleHodPendingAction('${uniqueId}', true, this)">Approve</button><button class="reject-btn" onclick="handleHodPendingAction('${uniqueId}', false, this)">Reject</button>`; }
         }
-        function handleApproval(uniqueId, isApproved, btnElement) { /* ... */
+
+        function handleApproval(uniqueId, isApproved, btnElement) {
             event.stopPropagation();
-            if (isApproved) { submitUpdate(uniqueId, 'Approved', btnElement); } else {
+            if (isApproved) {
+                submitUpdate(uniqueId, 'Approved', btnElement);
+            } else {
                 openModal('rejection-modal');
                 const reasonText = document.getElementById('rejection-reason-text');
                 const submitBtn = document.getElementById('rejection-submit-btn');
@@ -184,15 +184,18 @@
                 submitBtn.onclick = () => { const reason = reasonText.value.trim(); if (!reason) { alert("A reason is required to reject an item."); return; } submitUpdate(uniqueId, `Rejected: ${reason}`, btnElement); };
             }
         }
-        async function submitUpdate(uniqueId, newStatus, btnElement) { /* ... */
+
+        async function submitUpdate(uniqueId, newStatus, btnElement) {
             closeModal('rejection-modal');
             const actionCell = btnElement.parentElement;
             actionCell.innerHTML = 'Submitting...';
             try { await callAppsScript('updateApprovalStatus', [uniqueId, newStatus, 'Final']); window.location.reload(); } catch (error) { alert("Submission failed: " + error.message); actionCell.innerHTML = `<button class="approve-btn" onclick="handleApproval('${uniqueId}', true, this)">Approve</button><button class="reject-btn" onclick="handleApproval('${uniqueId}', false, this)">Reject</button>`; }
         }
+
         function openModal(modalId) { document.getElementById(modalId).style.display = 'flex'; }
         function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
-        function renderTable(tableType, data) { /* ... */
+
+        function renderTable(tableType, data) {
             const table = document.getElementById(`${tableType}-table`);
             const thead = table.querySelector("thead"); const tbody = table.querySelector("tbody");
             document.getElementById(`${tableType}-loader`).style.display = 'none';
@@ -209,11 +212,12 @@
                 const tr = document.createElement('tr');
                 tr.onclick = () => showDetails(row.uniqueID);
                 visibleCols.forEach(key => { if (availableColumns[key]) { const td = document.createElement('td'); if (key === 'pDFLink' && row[key]) { td.innerHTML = `<a href="${row[key]}" target="_blank" class="pdf-link" onclick="event.stopPropagation()">View Bill</a>`; } else { td.textContent = row[key]; } tr.appendChild(td); } });
-                if (tableType === 'pending') { tr.insertAdjacentHTML('beforeend', `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleApproval('${row.uniqueID}', true, this)">Approve</button><button class="reject-btn" onclick="handleApproval('${row.uniqueID}', false, this)">Reject</button></td>`); } else if (tableType === 'hod-pending') { tr.insertAdjacentHTML('beforeend', `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleHodPendingAction('${row.uniqueID}', true, this)">Approve</button><button class="reject-btn" onclick="handleHodPendingAction('${row.uniqueID}', false, this)">Reject</button></td>`); } else if (!visibleCols.includes('status')) { tr.insertAdjacentHTML('beforeend', `<td>${row.status || ''}</td>`); }
+                if (tableType === 'pending') { tr.insertAdjacentHTML('beforeend', `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleApproval('${row.uniqueID}', true, this)">Approve</button><button class="reject-btn" onclick="handleApproval('${row.uniqueID}', false, this)">Reject</button></td>`); } else if (tableType === 'hod-pending') { tr.insertAdjacentHTML('beforeend', `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleHodPendingAction('${row.uniqueID}', true, this)">Approve</button><button class="reject-btn" onclick="handleHodPendingAction('${uniqueId}', false, this)">Reject</button></td>`); } else if (!visibleCols.includes('status')) { tr.insertAdjacentHTML('beforeend', `<td>${row.status || ''}</td>`); }
                 tbody.appendChild(tr);
             });
         }
-        function initializeColumnSelectors() { /* ... */
+
+        function initializeColumnSelectors() {
             ['pending', 'approved', 'rejected', 'hod-pending'].forEach(tableType => {
                 const selectorContainer = document.getElementById(`${tableType}-selector`);
                 if (!selectorContainer) return;
