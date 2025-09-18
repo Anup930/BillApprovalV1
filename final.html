@@ -365,9 +365,7 @@
 
     <script>
       const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrwUdXo0iEj4IMh3OKEjj8o4lVjvUkrq2GG_we3tLJcwGT4LgA2FoHKd6BLZW3Rqxc/exec";
-      // https://script.google.com/macros/s/AKfycbxQGhtUCFCvYMVFm9q2uJ2BvD_AQPFsTYf43HwYaBTc5neR3Gv8uP5j99O6ilQ2hgUzbQ/exec
-      // https://script.google.com/macros/s/AKfycbzrwUdXo0iEj4IMh3OKEjj8o4lVjvUkrq2GG_we3tLJcwGT4LgA2FoHKd6BLZW3Rqxc/exec
-      
+
       let loadedData = {};
       let availableColumns = {};
       let currentUser = ""; // Global variable to store the logged-in user's name
@@ -481,10 +479,11 @@
         }
       }
 
-      function handleHodPendingAction(uniqueId, isApproved, btnElement) {
+      // MODIFIED: Added tableType parameter
+      function handleHodPendingAction(uniqueId, isApproved, btnElement, tableType) {
         event.stopPropagation();
         if (isApproved) {
-          submitHodAndFinalUpdate(uniqueId, "Approved", btnElement);
+          submitHodAndFinalUpdate(uniqueId, "Approved", btnElement, tableType);
         } else {
           openModal("rejection-modal");
           const reasonText = document.getElementById("rejection-reason-text");
@@ -496,30 +495,46 @@
               alert("A reason is required to reject an item.");
               return;
             }
-            submitHodAndFinalUpdate(uniqueId, `Rejected: ${reason}`, btnElement);
+            submitHodAndFinalUpdate(uniqueId, `Rejected: ${reason}`, btnElement, tableType);
           };
         }
       }
 
-      // --- MODIFIED: This function now sends the currentUser name for tracking ---
-      async function submitHodAndFinalUpdate(uniqueId, newStatus, btnElement) {
+      // --- MODIFIED: This function now sends the currentUser name for tracking AND handles UI update ---
+      async function submitHodAndFinalUpdate(uniqueId, newStatus, btnElement, tableType) {
         closeModal("rejection-modal");
         const actionCell = btnElement.parentElement;
         actionCell.innerHTML = "Submitting...";
         try {
           // ADDED 'currentUser' as the last parameter
           await callAppsScript("updateHodAndFinalStatus", [uniqueId, newStatus, currentUser]);
-          window.location.reload();
+          
+          // MODIFIED: Instead of full reload, re-fetch and render only the specific table
+          const updatedHodData = await callAppsScript("getHodPendingData"); 
+          loadedData["hod-pending"] = updatedHodData; // Update the cached data
+          renderTable("hod-pending", loadedData["hod-pending"]); // Re-render HOD pending table
+          
+          // Re-fetch and re-render user's own queues as status might change there too
+          const userData = await callAppsScript("getUserData", [currentUser, "Final"]);
+          loadedData.pending = userData.pending;
+          loadedData.approved = userData.approved;
+          loadedData.rejected = userData.rejected;
+          renderTable("pending", loadedData.pending);
+          renderTable("approved", loadedData.approved);
+          renderTable("rejected", loadedData.rejected);
+
+          showSection(tableType); // Ensure the HOD pending section remains visible
         } catch (error) {
           alert("Submission failed: " + error.message);
-          actionCell.innerHTML = `<button class="approve-btn" onclick="handleHodPendingAction('${uniqueId}', true, this)">Approve</button><button class="reject-btn" onclick="handleHodPendingAction('${uniqueId}', false, this)">Reject</button>`;
+          actionCell.innerHTML = `<button class="approve-btn" onclick="handleHodPendingAction('${uniqueId}', true, this, '${tableType}')">Approve</button><button class="reject-btn" onclick="handleHodPendingAction('${uniqueId}', false, this, '${tableType}')">Reject</button>`;
         }
       }
 
-      function handleApproval(uniqueId, isApproved, btnElement) {
+      // MODIFIED: Added tableType parameter
+      function handleApproval(uniqueId, isApproved, btnElement, tableType) {
         event.stopPropagation();
         if (isApproved) {
-          submitUpdate(uniqueId, "Approved", btnElement);
+          submitUpdate(uniqueId, "Approved", btnElement, tableType);
         } else {
           openModal("rejection-modal");
           const reasonText = document.getElementById("rejection-reason-text");
@@ -531,23 +546,35 @@
               alert("A reason is required to reject an item.");
               return;
             }
-            submitUpdate(uniqueId, `Rejected: ${reason}`, btnElement);
+            submitUpdate(uniqueId, `Rejected: ${reason}`, btnElement, tableType);
           };
         }
       }
 
-      // --- MODIFIED: This function now sends the currentUser name for tracking ---
-      async function submitUpdate(uniqueId, newStatus, btnElement) {
+      // --- MODIFIED: This function now sends the currentUser name for tracking AND handles UI update ---
+      async function submitUpdate(uniqueId, newStatus, btnElement, tableType) {
         closeModal("rejection-modal");
         const actionCell = btnElement.parentElement;
         actionCell.innerHTML = "Submitting...";
         try {
           // ADDED 'currentUser' as the last parameter
           await callAppsScript("updateApprovalStatus", [uniqueId, newStatus, "Final", currentUser]);
-          window.location.reload();
+          
+          // MODIFIED: Instead of full reload, re-fetch and render the specific user data
+          const userData = await callAppsScript("getUserData", [currentUser, "Final"]);
+          loadedData.pending = userData.pending;
+          loadedData.approved = userData.approved;
+          loadedData.rejected = userData.rejected;
+
+          // Re-render all three user-specific tables
+          renderTable("pending", loadedData.pending);
+          renderTable("approved", loadedData.approved);
+          renderTable("rejected", loadedData.rejected);
+          
+          showSection(tableType); // Ensure the original section remains visible
         } catch (error) {
           alert("Submission failed: " + error.message);
-          actionCell.innerHTML = `<button class="approve-btn" onclick="handleApproval('${uniqueId}', true, this)">Approve</button><button class="reject-btn" onclick="handleApproval('${uniqueId}', false, this)">Reject</button>`;
+          actionCell.innerHTML = `<button class="approve-btn" onclick="handleApproval('${uniqueId}', true, this, '${tableType}')">Approve</button><button class="reject-btn" onclick="handleApproval('${uniqueId}', false, this, '${tableType}')">Reject</button>`;
         }
       }
 
@@ -605,9 +632,11 @@
           });
 
           if (tableType === "pending") {
-            tr.insertAdjacentHTML("beforeend", `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleApproval('${row.uniqueID}', true, this)">Approve</button><button class="reject-btn" onclick="handleApproval('${row.uniqueID}', false, this)">Reject</button></td>`);
+            // MODIFIED: Pass 'pending' as tableType
+            tr.insertAdjacentHTML("beforeend", `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleApproval('${row.uniqueID}', true, this, 'pending')">Approve</button><button class="reject-btn" onclick="handleApproval('${row.uniqueID}', false, this, 'pending')">Reject</button></td>`);
           } else if (tableType === "hod-pending") {
-            tr.insertAdjacentHTML("beforeend", `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleHodPendingAction('${row.uniqueID}', true, this)">Approve</button><button class="reject-btn" onclick="handleHodPendingAction('${row.uniqueID}', false, this)">Reject</button></td>`);
+            // MODIFIED: Pass 'hod-pending' as tableType
+            tr.insertAdjacentHTML("beforeend", `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleHodPendingAction('${row.uniqueID}', true, this, 'hod-pending')">Approve</button><button class="reject-btn" onclick="handleHodPendingAction('${row.uniqueID}', false, this, 'hod-pending')">Reject</button></td>`);
           } else if (!visibleCols.includes("status")) {
             tr.insertAdjacentHTML("beforeend", `<td>${row.status || ""}</td>`);
           }
