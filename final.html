@@ -382,7 +382,6 @@
     </div>
 
     <script>
-      // IMPORTANT: Replace this URL with your latest Apps Script deployment URL
       const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrwUdXo0iEj4IMh3OKEjj8o4lVjvUkrq2GG_we3tLJcwGT4LgA2FoHKd6BLZW3Rqxc/exec";
 
       let loadedData = {};
@@ -456,9 +455,7 @@
             showSection("pending");
           }
         } catch (error) {
-          // MODIFIED: Catch block to handle the 'Failed to fetch' error gracefully
           alert("Failed to load data: " + error.message);
-          // Ensure loaders are hidden on error
           document.getElementById("pending-loader").style.display = "none";
           document.getElementById("approved-loader").style.display = "none";
           document.getElementById("rejected-loader").style.display = "none";
@@ -644,7 +641,7 @@
           if (tableType === "pending") {
             tr.insertAdjacentHTML("beforeend", `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleApproval('${row.uniqueID}', true, this, 'pending')">Approve</button><button class="reject-btn" onclick="handleApproval('${row.uniqueID}', false, this, 'pending')">Reject</button></td>`);
           } else if (tableType === "hod-pending") {
-            tr.insertAdjacentHTML("beforeend", `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleHodPendingAction('${row.uniqueID}', true, this, 'hod-pending')">Approve</button><button class="reject-btn" onclick="handleHodPendingAction('${row.uniqueID}', false, this, 'hod-pending')">Reject</button></td>`);
+            tr.insertAdjacentHTML("beforeend", `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleHodPendingAction('${row.uniqueID}', true, this, 'hod-pending')">Approve</button><button class="reject-btn" onclick="handleHodPendingAction('${row.uniqueId}', false, this, 'hod-pending')">Reject</button></td>`);
           } else if (tableType !== "pay" && !visibleCols.includes("status")) {
             tr.insertAdjacentHTML("beforeend", `<td>${row.status || ""}</td>`);
           }
