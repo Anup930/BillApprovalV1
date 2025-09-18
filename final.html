@@ -1,5 +1,3 @@
-<!-- V.1.5 -->
-
 <!DOCTYPE html>
 <html>
   <head>
@@ -190,6 +188,9 @@
         display: none;
         justify-content: center;
         align-items: center;
+      }
+      .modal-overlay.visible {
+        display: flex;
       }
       .modal-content {
         background: #fff;
@@ -419,11 +420,14 @@
         }
 
         document.getElementById("welcome-message").textContent += ` (Welcome, ${currentUser})`;
+        
+        // Corrected: Add event listener to modal-overlay only, not its children
         document.querySelectorAll(".modal-overlay").forEach((modal) => {
-          modal.onclick = (event) => {
+          modal.addEventListener("click", (event) => {
             if (event.target === modal) closeModal(modal.id);
-          };
+          });
         });
+
         window.addEventListener("click", () => {
           document.querySelectorAll(".column-dropdown").forEach((d) => d.classList.remove("visible"));
         });
@@ -468,6 +472,14 @@
         }
       });
 
+      function openModal(modalId) {
+        document.getElementById(modalId).classList.add('visible');
+      }
+
+      function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('visible');
+      }
+
       function showSection(sectionName) {
         document.querySelectorAll(".content-section").forEach((sec) => sec.classList.remove("visible"));
         document.querySelectorAll(".sidebar-nav button, .sidebar-nav a").forEach((btn) => btn.classList.remove("active"));
@@ -485,7 +497,7 @@
       async function showDetails(uniqueId) {
         const modalBody = document.getElementById("modal-body");
         modalBody.innerHTML = '<div class="loader">Loading...</div>';
-        openModal("details-modal");
+        openModal("details-modal"); // Ensure modal is opened
         try {
           const details = await callAppsScript("getEntryDetails", [uniqueId]);
           if (!details) {
@@ -508,8 +520,8 @@
         }
       }
 
-      function handleHodPendingAction(uniqueId, isApproved, btnElement, tableType) {
-        event.stopPropagation();
+      function handleHodPendingAction(uniqueId, isApproved, btnElement, tableType, event) {
+        event.stopPropagation(); // Stop propagation here
         if (isApproved) {
           submitHodAndFinalUpdate(uniqueId, "Approved", btnElement, tableType);
         } else {
@@ -550,12 +562,13 @@
           showSection(tableType);
         } catch (error) {
           alert("Submission failed: " + error.message);
-          actionCell.innerHTML = `<button class="approve-btn" onclick="handleHodPendingAction('${uniqueId}', true, this, '${tableType}')">Approve</button><button class="reject-btn" onclick="handleHodPendingAction('${uniqueId}', false, this, '${tableType}')">Reject</button>`;
+          // Restore buttons on error
+          actionCell.innerHTML = `<button class="approve-btn" onclick="handleHodPendingAction('${uniqueId}', true, this, '${tableType}', event)">Approve</button><button class="reject-btn" onclick="handleHodPendingAction('${uniqueId}', false, this, '${tableType}', event)">Reject</button>`;
         }
       }
 
-      function handleApproval(uniqueId, isApproved, btnElement, tableType) {
-        event.stopPropagation();
+      function handleApproval(uniqueId, isApproved, btnElement, tableType, event) {
+        event.stopPropagation(); // Stop propagation here
         if (isApproved) {
           submitUpdate(uniqueId, "Approved", btnElement, tableType);
         } else {
@@ -593,7 +606,8 @@
           showSection(tableType);
         } catch (error) {
           alert("Submission failed: " + error.message);
-          actionCell.innerHTML = `<button class="approve-btn" onclick="handleApproval('${uniqueId}', true, this, '${tableType}')">Approve</button><button class="reject-btn" onclick="handleApproval('${uniqueId}', false, this, '${tableType}')">Reject</button>`;
+          // Restore buttons on error
+          actionCell.innerHTML = `<button class="approve-btn" onclick="handleApproval('${uniqueId}', true, this, '${tableType}', event)">Approve</button><button class="reject-btn" onclick="handleApproval('${uniqueId}', false, this, '${tableType}', event)">Reject</button>`;
         }
       }
 
@@ -630,7 +644,8 @@
         thead.appendChild(headerRow);
         data.forEach((row) => {
           const tr = document.createElement("tr");
-          tr.onclick = () => showDetails(row.uniqueID);
+          // Only attach showDetails to the row, not buttons
+          tr.addEventListener('click', () => showDetails(row.uniqueID)); 
           visibleCols.forEach((key) => {
             if (availableColumns[key]) {
               const td = document.createElement("td");
@@ -643,9 +658,11 @@
             }
           });
           if (tableType === "pending") {
-            tr.insertAdjacentHTML("beforeend", `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleApproval('${row.uniqueID}', true, this, 'pending')">Approve</button><button class="reject-btn" onclick="handleApproval('${row.uniqueID}', false, this, 'pending')">Reject</button></td>`);
+            // Pass event object to handleApproval to stop propagation
+            tr.insertAdjacentHTML("beforeend", `<td><button class="approve-btn" onclick="handleApproval('${row.uniqueID}', true, this, 'pending', event)">Approve</button><button class="reject-btn" onclick="handleApproval('${row.uniqueID}', false, this, 'pending', event)">Reject</button></td>`);
           } else if (tableType === "hod-pending") {
-            tr.insertAdjacentHTML("beforeend", `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleHodPendingAction('${row.uniqueID}', true, this, 'hod-pending')">Approve</button><button class="reject-btn" onclick="handleHodPendingAction('${row.uniqueID}', false, this, 'hod-pending')">Reject</button></td>`);
+            // Pass event object to handleHodPendingAction to stop propagation
+            tr.insertAdjacentHTML("beforeend", `<td><button class="approve-btn" onclick="handleHodPendingAction('${row.uniqueID}', true, this, 'hod-pending', event)">Approve</button><button class="reject-btn" onclick="handleHodPendingAction('${row.uniqueID}', false, this, 'hod-pending', event)">Reject</button></td>`);
           } else if (tableType !== "pay" && !visibleCols.includes("status")) {
             tr.insertAdjacentHTML("beforeend", `<td>${row.status || ""}</td>`);
           }
