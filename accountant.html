@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
     <base target="_top">
@@ -410,7 +410,7 @@
         let currentUser = '';
         const DEFAULT_VISIBLE_COLS = ['uniqueID', 'vendor', 'invoiceNumber', 'finalAmountPayable', 'pDFLink'];
 
-        async function callAppsScript(functionName, params = []) {
+        async function callAppsScript(functionName) { // Removed params here as it's passed in the body
             const response = await fetch(SCRIPT_URL, {
                 method: 'POST',
                 headers: {
@@ -418,7 +418,7 @@
                 },
                 body: JSON.stringify({
                     action: functionName,
-                    params: params
+                    params: Array.from(arguments).slice(1) // Get subsequent arguments as parameters
                 })
             });
             const result = await response.json();
@@ -448,7 +448,8 @@
             });
 
             try {
-                const response = await callAppsScript('getUserData', [currentUser, 'Accountant']);
+                // Initial data load for Accountant
+                const response = await callAppsScript('getUserData', currentUser, 'Accountant');
                 loadedData = {
                     pending: response.pending,
                     approved: response.approved,
@@ -457,10 +458,8 @@
                 availableColumns = response.columnMap;
 
                 initializeColumnSelectors();
-                renderTable('pending', loadedData.pending);
-                renderTable('approved', loadedData.approved);
-                renderTable('rejected', loadedData.rejected);
-                showSection('pending');
+                renderAllAccountantTables(); // Render all tables initially
+                showSection('pending'); // Show pending section by default
             } catch (error) {
                 alert('Failed to load data: ' + error.message);
             }
@@ -476,7 +475,7 @@
             modalBody.innerHTML = '<div class="loader">Loading...</div>';
             openModal('details-modal');
             try {
-                const details = await callAppsScript('getEntryDetails', [uniqueId]);
+                const details = await callAppsScript('getEntryDetails', uniqueId);
                 if (!details) {
                     modalBody.innerHTML = 'Error: Entry not found.';
                     return;
@@ -497,10 +496,11 @@
             }
         }
 
-        function handleApproval(uniqueId, isApproved, btnElement) {
+        // MODIFIED: Added tableType parameter
+        function handleApproval(uniqueId, isApproved, btnElement, tableType) {
             event.stopPropagation();
             if (isApproved) {
-                submitUpdate(uniqueId, 'Approved', btnElement);
+                submitUpdate(uniqueId, 'Approved', btnElement, tableType);
             } else {
                 openModal('rejection-modal');
                 const reasonText = document.getElementById('rejection-reason-text');
@@ -512,22 +512,36 @@
                         alert("A reason is required to reject an item.");
                         return;
                     }
-                    submitUpdate(uniqueId, `Rejected: ${reason}`, btnElement);
+                    submitUpdate(uniqueId, `Rejected: ${reason}`, btnElement, tableType);
                 };
             }
         }
 
-        async function submitUpdate(uniqueId, newStatus, btnElement) {
+        // MODIFIED: Changed to re-fetch and re-render tables instead of full reload
+        async function submitUpdate(uniqueId, newStatus, btnElement, tableType) {
             closeModal('rejection-modal');
             const actionCell = btnElement.parentElement;
             actionCell.innerHTML = 'Submitting...';
 
             try {
-                await callAppsScript('updateApprovalStatus', [uniqueId, newStatus, 'Accountant', currentUser]);
-                window.location.reload();
+                // Pass currentUser as the 4th parameter as expected by the backend
+                await callAppsScript('updateApprovalStatus', uniqueId, newStatus, 'Accountant', currentUser);
+                
+                // Re-fetch all Accountant-specific data
+                const response = await callAppsScript('getUserData', currentUser, 'Accountant');
+                loadedData.pending = response.pending;
+                loadedData.approved = response.approved;
+                loadedData.rejected = response.rejected;
+
+                renderAllAccountantTables(); // Re-render all three tables
+                showSection(tableType); // Stay on the current section
+
+                // Re-apply filter if active in the current section
+                filterTable(tableType);
+
             } catch (error) {
                 alert("Submission failed: " + error.message);
-                actionCell.innerHTML = `<button class="approve-btn" onclick="handleApproval('${uniqueId}', true, this)">Approve</button><button class="reject-btn" onclick="handleApproval('${uniqueId}', false, this)">Reject</button>`;
+                actionCell.innerHTML = `<button class="approve-btn" onclick="handleApproval('${uniqueId}', true, this, '${tableType}')">Approve</button><button class="reject-btn" onclick="handleApproval('${uniqueId}', false, this, '${tableType}')">Reject</button>`;
             }
         }
 
@@ -546,7 +560,14 @@
             document.getElementById('nav-' + sectionName).classList.add('active');
             // Clear the filter input whenever the section changes
             document.getElementById(`filter-input-${sectionName}`).value = '';
-            filterTable(sectionName);
+            filterTable(sectionName); // Re-apply the filter to show all initially
+        }
+        
+        // New helper function to render all Accountant tables
+        function renderAllAccountantTables() {
+            renderTable('pending', loadedData.pending);
+            renderTable('approved', loadedData.approved);
+            renderTable('rejected', loadedData.rejected);
         }
 
         function renderTable(tableType, data) {
@@ -597,7 +618,8 @@
                     }
                 });
                 if (isPending) {
-                    tr.insertAdjacentHTML('beforeend', `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleApproval('${row.uniqueID}', true, this)">Approve</button><button class="reject-btn" onclick="handleApproval('${row.uniqueID}', false, this)">Reject</button></td>`);
+                    // MODIFIED: Pass tableType to handleApproval
+                    tr.insertAdjacentHTML('beforeend', `<td onclick="event.stopPropagation()"><button class="approve-btn" onclick="handleApproval('${row.uniqueID}', true, this, '${tableType}')">Approve</button><button class="reject-btn" onclick="handleApproval('${row.uniqueID}', false, this, '${tableType}')">Reject</button></td>`);
                 } else if (!visibleCols.includes('status')) {
                     tr.insertAdjacentHTML('beforeend', `<td>${row.status || ''}</td>`);
                 }
@@ -639,8 +661,18 @@
 
         function filterTable(tableType) {
             const filterInput = document.getElementById(`filter-input-${tableType}`);
+            // Ensure filterInput exists before trying to access its value
+            if (!filterInput) return; 
+
             const filter = filterInput.value.toLowerCase();
             const tableBody = document.getElementById(`${tableType}-table`).getElementsByTagName('tbody')[0];
+            
+            // Check if tableBody exists and has content before proceeding
+            if (!tableBody || tableBody.rows.length === 0) {
+                // If the table is empty or not yet rendered, no filtering needed
+                return; 
+            }
+
             const rows = tableBody.getElementsByTagName('tr');
 
             for (let i = 0; i < rows.length; i++) {
